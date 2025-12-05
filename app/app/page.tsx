@@ -206,10 +206,10 @@ export default function AppScreen() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container-mobile flex items-center justify-between py-4">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">😈</span>
-            <h1 className="text-xl font-bold text-white">SubText</h1>
-          </div>
+          <h1 className="text-xl font-bold">
+            <span className="text-white">Sub</span>
+            <span className="text-accent">Text</span>
+          </h1>
 
           {/* Burger Menu */}
           <button

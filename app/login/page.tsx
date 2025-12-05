@@ -38,7 +38,10 @@ export default function Login() {
       <div className="container-mobile w-full max-w-md">
         {/* Logo/Branding */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-accent mb-3">SubText</h1>
+          <h1 className="text-4xl font-bold mb-3">
+            <span className="text-white">Sub</span>
+            <span className="text-accent">Text</span>
+          </h1>
           <p className="text-muted-foreground text-sm">
             Decode hidden intentions in conversations
           </p>

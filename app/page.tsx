@@ -1,51 +1,42 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import * as api from '@/lib/api';
 
 export default function Home() {
   const router = useRouter();
-  const { user, loading } = useAuth();
-  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const checkOnboarding = () => {
-      // Wait for client-side to be ready
-      if (typeof window === 'undefined') return;
+    // Always check onboarding first on client-side
+    if (typeof window !== 'undefined') {
+      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
 
-      // Small delay to ensure localStorage is accessible
-      setTimeout(() => {
-        const hasSeenOnboarding = api.hasSeenOnboarding();
+      if (hasSeenOnboarding !== 'true') {
+        // Force redirect to onboarding for first-time users
+        router.replace('/onboarding');
+      } else {
+        // Check if user is logged in
+        const userToken = localStorage.getItem('userToken');
 
-        if (!hasSeenOnboarding) {
-          router.push('/onboarding');
-        } else if (!loading) {
-          if (!user) {
-            router.push('/login');
-          } else {
-            router.push('/app');
-          }
+        if (userToken) {
+          router.replace('/app');
+        } else {
+          router.replace('/login');
         }
-        setChecking(false);
-      }, 100);
-    };
+      }
+    }
+  }, [router]);
 
-    checkOnboarding();
-  }, [user, loading, router]);
-
-  // Show loading screen while checking
-  if (checking || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center">
-          <div className="text-accent text-4xl font-bold mb-2">SubText</div>
-          <div className="mt-2 text-muted-foreground text-sm">Loading...</div>
-        </div>
+  // Show loading screen while redirecting
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-2">
+          <span className="text-white">Sub</span>
+          <span className="text-accent">Text</span>
+        </h1>
+        <div className="mt-2 text-muted-foreground text-sm">Loading...</div>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }

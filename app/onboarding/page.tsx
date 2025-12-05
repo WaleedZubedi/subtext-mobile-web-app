@@ -148,7 +148,10 @@ export default function Onboarding() {
 
         {/* Logo */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-accent">SubText</h1>
+          <h1 className="text-4xl font-bold">
+            <span className="text-white">Sub</span>
+            <span className="text-accent">Text</span>
+          </h1>
         </div>
 
         {/* Slides */}

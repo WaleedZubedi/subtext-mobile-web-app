@@ -31,7 +31,7 @@ const demoMessages = [
 ];
 
 export default function AppScreen() {
-  const { user, hasSubscription, logout } = useAuth();
+  const { user, hasSubscription, logout, loading } = useAuth();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [currentDemo, setCurrentDemo] = useState(0);
@@ -49,12 +49,12 @@ export default function AppScreen() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Redirect if not logged in
+  // Redirect if not logged in (wait for auth to finish loading first)
   useEffect(() => {
-    if (!user) {
+    if (!loading && !user) {
       router.push('/login');
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
   // Demo message animation
   useEffect(() => {
@@ -196,6 +196,18 @@ export default function AppScreen() {
     navigator.clipboard.writeText(text);
     // Could add a toast notification here
   };
+
+  // Show loading screen while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-pulse">😈</div>
+          <p className="text-accent font-bold">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return null; // Will redirect

@@ -146,6 +146,14 @@ export default function Onboarding() {
           Skip
         </button>
 
+        {/* Build Info - Top Left */}
+        <div className="absolute top-8 left-6 text-xs font-mono">
+          <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2">
+            <div className="text-accent font-bold">BUILD {new Date().toISOString().slice(0, 16).replace('T', ' ')}</div>
+            <div className="text-muted-foreground mt-1">v1.0.{Date.now().toString().slice(-6)}</div>
+          </div>
+        </div>
+
         {/* Logo */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold">

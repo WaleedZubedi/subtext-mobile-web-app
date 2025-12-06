@@ -98,7 +98,7 @@ export default function Subscription() {
   }, [user, router]);
 
   const handleCreateSubscription = (data: any, actions: any, plan: typeof plans[0]) => {
-    console.log('Creating subscription for plan:', plan.id, 'with PayPal plan ID:', plan.planId);
+    console.log('🔵 Creating PayPal subscription for plan:', plan.id, 'with PayPal plan ID:', plan.planId);
     setDebugInfo(`Creating subscription: ${plan.id} (${plan.planId})`);
 
     if (!plan.planId) {
@@ -112,49 +112,62 @@ export default function Subscription() {
   };
 
   const handleApprove = async (data: any, plan: typeof plans[0]) => {
-    console.log('PayPal subscription approved:', data);
+    console.log('✅ PayPal subscription approved:', data);
     setDebugInfo(`PayPal approved: ${data.subscriptionID}`);
     setLoading(true);
     setError('');
 
     try {
-      console.log('Calling backend to create subscription...', {
+      console.log('📤 Calling backend to create subscription...', {
         subscriptionId: data.subscriptionID,
         tier: plan.id,
       });
 
       // Create subscription in backend
       const result = await api.createSubscription(data.subscriptionID, plan.id);
-      console.log('Backend response:', result);
+      console.log('📥 Backend response:', result);
 
       if (!result.success) {
-        throw new Error(result.message || 'Subscription creation failed');
+        throw new Error(result.message || result.error || 'Subscription creation failed');
       }
 
+      console.log('✅ Subscription created successfully!');
+
       // Refresh subscription status in context
+      console.log('🔄 Refreshing subscription status...');
       await refreshSubscriptionStatus();
 
       setSuccess(true);
       setDebugInfo('Subscription activated successfully!');
 
       // Redirect to app after success
+      console.log('➡️ Redirecting to /app in 2 seconds...');
       setTimeout(() => {
         router.push('/app');
       }, 2000);
     } catch (err: any) {
-      console.error('Subscription activation error:', err);
+      console.error('❌ Subscription activation error:', err);
       const errorMessage = err.message || 'Failed to activate subscription';
       setError(errorMessage);
       setDebugInfo(`Error: ${errorMessage}`);
-    } finally {
-      setLoading(false);
+      setLoading(false); // IMPORTANT: Reset loading state on error
+      setSelectedPlan(null); // Reset selected plan so user can try again
     }
   };
 
   const handlePayPalError = (err: any) => {
-    console.error('PayPal error:', err);
+    console.error('❌ PayPal error:', err);
     setError('PayPal payment failed. Please try again.');
     setDebugInfo(`PayPal error: ${JSON.stringify(err)}`);
+    setLoading(false);
+    setSelectedPlan(null); // Reset so user can try again
+  };
+
+  const handleCancel = () => {
+    console.log('⚠️ PayPal subscription cancelled by user');
+    setDebugInfo('Payment cancelled by user');
+    setLoading(false);
+    setSelectedPlan(null);
   };
 
   if (!user) {
@@ -246,6 +259,15 @@ export default function Subscription() {
             >
               <p className="text-error text-sm font-bold">Error:</p>
               <p className="text-error text-sm">{error}</p>
+              <button
+                onClick={() => {
+                  setError('');
+                  setSelectedPlan(null);
+                }}
+                className="mt-3 text-accent text-sm hover:underline"
+              >
+                Try again
+              </button>
             </motion.div>
           )}
 
@@ -311,7 +333,8 @@ export default function Subscription() {
                     {loading ? (
                       <div className="text-center py-4">
                         <div className="animate-spin text-4xl mb-2">😈</div>
-                        <p className="text-accent font-bold">Activating subscription...</p>
+                        <p className="text-accent font-bold">Processing subscription...</p>
+                        <p className="text-muted-foreground text-xs mt-2">Please wait, do not close this page</p>
                       </div>
                     ) : (
                       <>
@@ -319,10 +342,7 @@ export default function Subscription() {
                           createSubscription={(data, actions) => handleCreateSubscription(data, actions, plan)}
                           onApprove={(data) => handleApprove(data, plan)}
                           onError={handlePayPalError}
-                          onCancel={() => {
-                            console.log('PayPal subscription cancelled by user');
-                            setDebugInfo('Payment cancelled by user');
-                          }}
+                          onCancel={handleCancel}
                           style={{
                             layout: 'vertical',
                             color: 'gold',

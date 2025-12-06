@@ -7,6 +7,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import * as api from '@/lib/api';
 
+// PayPal configuration
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
+const PAYPAL_BASIC_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID || '';
+const PAYPAL_PRO_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID || '';
+const PAYPAL_PREMIUM_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID || '';
+
 const plans = [
   {
     id: 'basic',
@@ -14,7 +20,7 @@ const plans = [
     price: '$4.99',
     priceValue: 4.99,
     limit: 25,
-    planId: process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID!,
+    planId: PAYPAL_BASIC_PLAN_ID,
     features: [
       '25 conversation analyses per month',
       'AI-powered manipulation detection',
@@ -30,7 +36,7 @@ const plans = [
     price: '$9.99',
     priceValue: 9.99,
     limit: 100,
-    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID!,
+    planId: PAYPAL_PRO_PLAN_ID,
     features: [
       '100 conversation analyses per month',
       'Everything in Basic',
@@ -46,7 +52,7 @@ const plans = [
     price: '$19.99',
     priceValue: 19.99,
     limit: -1,
-    planId: process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID!,
+    planId: PAYPAL_PREMIUM_PLAN_ID,
     features: [
       'Unlimited analyses',
       'Everything in Pro',

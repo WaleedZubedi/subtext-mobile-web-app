@@ -39,6 +39,8 @@ export default function AppScreen() {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [currentPhase, setCurrentPhase] = useState(0);
+  const [showScanLine, setShowScanLine] = useState(false);
+  const [showHiddenIntent, setShowHiddenIntent] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [typewriterText, setTypewriterText] = useState('');
 
@@ -53,6 +55,7 @@ export default function AppScreen() {
   const [error, setError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isAnimatingRef = useRef(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -65,33 +68,91 @@ export default function AppScreen() {
   const typeWriter = async (text: string) => {
     setTypewriterText('');
     for (let i = 0; i <= text.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 40));
       setTypewriterText(text.substring(0, i));
+      await new Promise(resolve => setTimeout(resolve, 40));
     }
   };
 
   // Demo animation loop
   useEffect(() => {
-    const runAnimation = async () => {
+    let timeouts: NodeJS.Timeout[] = [];
+    let isActive = true;
+
+    const runPhaseAnimation = async (phaseIndex: number) => {
+      if (!isActive || isAnimatingRef.current) return;
+      isAnimatingRef.current = true;
+
+      // Reset all states
+      setShowScanLine(false);
+      setShowHiddenIntent(false);
       setShowAnalysis(false);
       setTypewriterText('');
+      setCurrentPhase(phaseIndex);
 
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      // Wait for message to appear
+      await new Promise(resolve => {
+        timeouts.push(setTimeout(resolve, 1200));
+      });
+      if (!isActive) return;
 
+      // Start scan line
+      setShowScanLine(true);
+      await new Promise(resolve => {
+        timeouts.push(setTimeout(resolve, 1400));
+      });
+      if (!isActive) return;
+
+      // Hide scan line, show hidden intent
+      setShowScanLine(false);
+      setShowHiddenIntent(true);
+      await new Promise(resolve => {
+        timeouts.push(setTimeout(resolve, 900));
+      });
+      if (!isActive) return;
+
+      // Show analysis box
       setShowAnalysis(true);
-      await typeWriter(phases[currentPhase].analysis);
+      await new Promise(resolve => {
+        timeouts.push(setTimeout(resolve, 300));
+      });
+      if (!isActive) return;
 
-      await new Promise(resolve => setTimeout(resolve, 2800));
+      // Type out analysis
+      const phase = phases[phaseIndex];
+      await typeWriter(phase.analysis);
+      if (!isActive) return;
 
-      setCurrentPhase((prev) => (prev + 1) % phases.length);
+      // Stay visible for 2.5 seconds
+      await new Promise(resolve => {
+        timeouts.push(setTimeout(resolve, 2500));
+      });
+      if (!isActive) return;
+
+      isAnimatingRef.current = false;
     };
 
-    const interval = setInterval(runAnimation, 8000);
-    runAnimation();
+    const animationLoop = async () => {
+      let phaseIndex = 0;
 
-    return () => clearInterval(interval);
-  }, [currentPhase]);
+      while (isActive) {
+        await runPhaseAnimation(phaseIndex);
+        phaseIndex = (phaseIndex + 1) % phases.length;
+
+        // Short pause between phases
+        await new Promise(resolve => {
+          timeouts.push(setTimeout(resolve, 800));
+        });
+      }
+    };
+
+    animationLoop();
+
+    return () => {
+      isActive = false;
+      isAnimatingRef.current = false;
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []); // Only run once on mount
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -235,54 +296,48 @@ export default function AppScreen() {
         {!analysisResult && !isProcessing && (
           <div className="py-10 px-5 min-h-[400px] flex flex-col items-center justify-center">
             {/* Message Bubble */}
-            <motion.div
-              key={currentPhase}
-              initial={{ opacity: 0, scale: 0.8, y: -8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
-              className="bg-[#2d2d2d] rounded-[20px] p-4.5 max-w-[85%] shadow-[0_4px_8px_rgba(0,0,0,0.3)] border border-[#404040] mb-4 relative overflow-hidden"
-            >
-              <p className="text-white text-base font-medium leading-[22px]">{currentPhaseData.surfaceText}</p>
+            <div className="bg-[#2d2d2d] rounded-[20px] p-4.5 max-w-[85%] shadow-[0_4px_8px_rgba(0,0,0,0.3)] border border-[#404040] mb-4 relative overflow-hidden">
+              <p className="text-white text-base font-medium leading-[22px]">
+                {currentPhaseData.surfaceText}
+              </p>
 
               {/* Scan Line */}
-              {!showAnalysis && (
+              {showScanLine && (
                 <motion.div
                   className="absolute top-0 bottom-0 w-0.5 bg-[#FF6B6B]"
                   style={{
                     boxShadow: '0 0 8px rgba(255, 107, 107, 0.8)',
                   }}
                   initial={{ left: '-30px' }}
-                  animate={{ left: '100%' }}
+                  animate={{ left: 'calc(100% + 30px)' }}
                   transition={{ duration: 1.2, ease: 'linear' }}
                 />
               )}
-            </motion.div>
+            </div>
 
             {/* Hidden Intent Bubble */}
-            <AnimatePresence>
-              {showAnalysis && (
-                <motion.div
-                  initial={{ opacity: 0, y: -30, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.9 }}
-                  className="bg-[#1a1a1a] rounded-[18px] p-4 max-w-[85%] shadow-[0_4px_12px_rgba(255,107,107,0.4)] border-2 border-[#FF6B6B] mb-4 relative"
-                >
-                  {/* Arrow pointing up */}
-                  <div className="absolute -top-2.5 left-1/2 -ml-2.5 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-[#FF6B6B]"></div>
+            {showHiddenIntent && (
+              <motion.div
+                initial={{ opacity: 0, y: -30, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.9 }}
+                className="bg-[#1a1a1a] rounded-[18px] p-4 max-w-[85%] shadow-[0_4px_12px_rgba(255,107,107,0.4)] border-2 border-[#FF6B6B] mb-4 relative"
+              >
+                {/* Arrow pointing up */}
+                <div className="absolute -top-2.5 left-1/2 -ml-2.5 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-[#FF6B6B]"></div>
 
-                  <p className="text-[#FF6B6B] text-[15px] font-semibold leading-5 italic text-center">
-                    {currentPhaseData.hiddenText}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                <p className="text-[#FF6B6B] text-[15px] font-semibold leading-5 italic text-center">
+                  {currentPhaseData.hiddenText}
+                </p>
+              </motion.div>
+            )}
 
             {/* Analysis Layer */}
             {showAnalysis && (
               <motion.div
                 initial={{ opacity: 0, y: 40, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.3, delay: 0.3 }}
+                transition={{ duration: 0.3 }}
                 className="bg-[#0a0a0a] rounded-2xl p-4 w-[90%] shadow-[0_8px_16px_rgba(0,0,0,0.5)] border border-[#333]"
               >
                 <div className="flex items-center gap-2 mb-3">
@@ -295,7 +350,10 @@ export default function AppScreen() {
                   </div>
                 </div>
                 <p className="text-[#ccc] text-sm leading-5 font-medium">
-                  {typewriterText}<span className="text-[#FF6B6B] font-bold animate-pulse">|</span>
+                  {typewriterText}
+                  {typewriterText.length < currentPhaseData.analysis.length && (
+                    <span className="text-[#FF6B6B] font-bold animate-pulse ml-0.5">|</span>
+                  )}
                 </p>
               </motion.div>
             )}

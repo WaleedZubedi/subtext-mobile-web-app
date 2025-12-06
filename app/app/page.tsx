@@ -6,36 +6,41 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as api from '@/lib/api';
 
-// Demo messages for animation
-const demoMessages = [
+// Demo phases - exact match from Subtext-main
+const phases = [
   {
-    text: "I guess I'll just be alone tonight... again 😔",
-    hiddenIntent: "Fishing for sympathy and attention",
-    behaviorType: "ATTENTION-SEEKING",
+    surfaceText: "Hey, are you free tonight?",
+    hiddenText: "I need validation and attention",
+    analysis: "Classic availability test → Fishing for priority status",
+    manipulationType: "ATTENTION-SEEKING"
   },
   {
-    text: "You never text me first anymore...",
-    hiddenIntent: "Guilt-tripping to gain control",
-    behaviorType: "CONTROLLING",
+    surfaceText: "Just checking in on you 😊",
+    hiddenText: "I want to control your time",
+    analysis: "Fake concern → Boundary invasion disguised as care",
+    manipulationType: "CONTROLLING"
   },
   {
-    text: "I'm fine. Do whatever you want.",
-    hiddenIntent: "Passive-aggressive manipulation",
-    behaviorType: "GUILT-TRIPPING",
+    surfaceText: "We should catch up soon!",
+    hiddenText: "I need something from you",
+    analysis: "Vague obligation → Creating social debt without commitment",
+    manipulationType: "MANIPULATIVE"
   },
   {
-    text: "Nobody cares about me anyway",
-    hiddenIntent: "Emotional manipulation for validation",
-    behaviorType: "ATTENTION-SEEKING",
-  },
+    surfaceText: "Miss our conversations...",
+    hiddenText: "Guilt-tripping you to respond",
+    analysis: "Emotional leverage → Weaponizing nostalgia for response",
+    manipulationType: "GUILT-TRIPPING"
+  }
 ];
 
 export default function AppScreen() {
   const { user, hasSubscription, logout, loading } = useAuth();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
-  const [currentDemo, setCurrentDemo] = useState(0);
-  const [showDemoIntent, setShowDemoIntent] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState(0);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [typewriterText, setTypewriterText] = useState('');
 
   // Analysis states
   const [inputMethod, setInputMethod] = useState<'upload' | 'manual' | null>(null);
@@ -49,32 +54,44 @@ export default function AppScreen() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Redirect if not logged in (wait for auth to finish loading first)
+  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
 
-  // Demo message animation
+  // Typewriter effect
+  const typeWriter = async (text: string) => {
+    setTypewriterText('');
+    for (let i = 0; i <= text.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 40));
+      setTypewriterText(text.substring(0, i));
+    }
+  };
+
+  // Demo animation loop
   useEffect(() => {
-    const interval = setInterval(() => {
-      setShowDemoIntent(false);
-      setTimeout(() => {
-        setCurrentDemo((prev) => (prev + 1) % demoMessages.length);
-      }, 300);
-    }, 6000);
+    const runAnimation = async () => {
+      setShowAnalysis(false);
+      setTypewriterText('');
+
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      setShowAnalysis(true);
+      await typeWriter(phases[currentPhase].analysis);
+
+      await new Promise(resolve => setTimeout(resolve, 2800));
+
+      setCurrentPhase((prev) => (prev + 1) % phases.length);
+    };
+
+    const interval = setInterval(runAnimation, 8000);
+    runAnimation();
 
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowDemoIntent(true);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [currentDemo]);
+  }, [currentPhase]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -144,13 +161,12 @@ export default function AppScreen() {
     navigator.clipboard.writeText(text);
   };
 
-  // Show loading screen while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-[#1a1a1a] via-[#2d2d2d] to-[#1a1a1a] flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4 animate-pulse">😈</div>
-          <p className="text-accent font-bold">Loading...</p>
+          <p className="text-[#FF6B6B] font-bold">Loading...</p>
         </div>
       </div>
     );
@@ -160,24 +176,28 @@ export default function AppScreen() {
     return null;
   }
 
+  const currentPhaseData = phases[currentPhase];
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
+    <div className="min-h-screen bg-gradient-to-b from-[#1a1a1a] via-[#2d2d2d] to-[#1a1a1a]">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-50 bg-[rgba(26,26,26,0.98)] border-b-2 border-[rgba(255,107,107,0.4)] shadow-xl">
         <div className="container-mobile flex items-center justify-between py-4">
           <div className="flex-1"></div>
-          <h1 className="text-xl font-bold text-center">
+          <h1 className="text-3xl font-bold tracking-tight">
             <span className="text-white">Sub</span>
-            <span className="text-accent">Text</span>
+            <span className="text-[#FF6B6B]">Text</span>
           </h1>
           <div className="flex-1 flex justify-end">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="text-white hover:text-accent transition-colors"
+              className="p-3 hover:opacity-80 transition-opacity"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <div className="space-y-1.5">
+                <div className="w-6 h-0.5 bg-[#FF6B6B] rounded"></div>
+                <div className="w-6 h-0.5 bg-[#FF6B6B] rounded"></div>
+                <div className="w-6 h-0.5 bg-[#FF6B6B] rounded"></div>
+              </div>
             </button>
           </div>
         </div>
@@ -189,14 +209,20 @@ export default function AppScreen() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-t border-border bg-card"
+              className="border-t border-[rgba(255,107,107,0.2)] bg-[rgba(26,26,26,0.98)]"
             >
               <div className="container-mobile py-3 space-y-2">
-                <button onClick={() => router.push('/settings')} className="block w-full text-left px-4 py-2 text-white hover:bg-background rounded-xl transition-colors">
-                  Settings
+                <button onClick={() => router.push('/settings')} className="flex items-center w-full text-left px-4 py-3 text-white bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,107,107,0.1)] rounded-xl transition-colors border border-transparent hover:border-[rgba(255,107,107,0.2)]">
+                  <div className="w-11 h-11 rounded-full bg-[rgba(255,107,107,0.12)] border border-[rgba(255,107,107,0.2)] flex items-center justify-center mr-4">
+                    <span className="text-xl">⚙️</span>
+                  </div>
+                  <span className="font-semibold">Settings</span>
                 </button>
-                <button onClick={() => router.push('/subscription')} className="block w-full text-left px-4 py-2 text-white hover:bg-background rounded-xl transition-colors">
-                  Subscription
+                <button onClick={() => router.push('/subscription')} className="flex items-center w-full text-left px-4 py-3 text-white bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,107,107,0.1)] rounded-xl transition-colors border border-transparent hover:border-[rgba(255,107,107,0.2)]">
+                  <div className="w-11 h-11 rounded-full bg-[rgba(255,107,107,0.12)] border border-[rgba(255,107,107,0.2)] flex items-center justify-center mr-4">
+                    <span className="text-xl">💎</span>
+                  </div>
+                  <span className="font-semibold">Subscription</span>
                 </button>
               </div>
             </motion.div>
@@ -204,99 +230,94 @@ export default function AppScreen() {
         </AnimatePresence>
       </header>
 
-      <div className="container-mobile py-8 space-y-8">
+      <div className="container-mobile py-8 px-5">
         {/* Demo Animation Section */}
         {!analysisResult && !isProcessing && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card rounded-3xl p-6 shadow-card overflow-hidden"
-          >
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="bg-accent/20 px-3 py-1 rounded-full">
-                <span className="text-accent text-xs font-bold">AI DEMO</span>
-              </div>
-              <span className="text-muted-foreground text-xs">Live Preview</span>
-            </div>
+          <div className="py-10 px-5 min-h-[400px] flex flex-col items-center justify-center">
+            {/* Message Bubble */}
+            <motion.div
+              key={currentPhase}
+              initial={{ opacity: 0, scale: 0.8, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.7 }}
+              className="bg-[#2d2d2d] rounded-[20px] p-4.5 max-w-[85%] shadow-[0_4px_8px_rgba(0,0,0,0.3)] border border-[#404040] mb-4 relative overflow-hidden"
+            >
+              <p className="text-white text-base font-medium leading-[22px]">{currentPhaseData.surfaceText}</p>
 
-            {/* Demo Message with Scan Animation */}
-            <div className="relative mb-6">
-              <AnimatePresence mode="wait">
+              {/* Scan Line */}
+              {!showAnalysis && (
                 <motion.div
-                  key={currentDemo}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                  className="bg-background rounded-2xl p-4 relative overflow-hidden"
-                >
-                  <p className="text-white relative z-10">{demoMessages[currentDemo].text}</p>
+                  className="absolute top-0 bottom-0 w-0.5 bg-[#FF6B6B]"
+                  style={{
+                    boxShadow: '0 0 8px rgba(255, 107, 107, 0.8)',
+                  }}
+                  initial={{ left: '-30px' }}
+                  animate={{ left: '100%' }}
+                  transition={{ duration: 1.2, ease: 'linear' }}
+                />
+              )}
+            </motion.div>
 
-                  {/* Smooth Scan Line */}
-                  {!showDemoIntent && (
-                    <motion.div
-                      className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-accent to-transparent opacity-80"
-                      style={{
-                        boxShadow: '0 0 10px rgba(255, 107, 107, 0.8)',
-                        filter: 'blur(1px)'
-                      }}
-                      initial={{ top: '-10px' }}
-                      animate={{ top: '110%' }}
-                      transition={{
-                        duration: 1.8,
-                        ease: 'linear'
-                      }}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Hidden Intent Reveal */}
-            <AnimatePresence mode="wait">
-              {showDemoIntent && (
+            {/* Hidden Intent Bubble */}
+            <AnimatePresence>
+              {showAnalysis && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-3"
+                  initial={{ opacity: 0, y: -30, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.9 }}
+                  className="bg-[#1a1a1a] rounded-[18px] p-4 max-w-[85%] shadow-[0_4px_12px_rgba(255,107,107,0.4)] border-2 border-[#FF6B6B] mb-4 relative"
                 >
-                  <div className="bg-accent/10 border border-accent/30 rounded-2xl p-4">
-                    <p className="text-xs text-accent font-bold mb-1">HIDDEN INTENT:</p>
-                    <p className="text-white text-sm">{demoMessages[currentDemo].hiddenIntent}</p>
-                  </div>
+                  {/* Arrow pointing up */}
+                  <div className="absolute -top-2.5 left-1/2 -ml-2.5 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-[#FF6B6B]"></div>
 
-                  <div className="flex items-center justify-center">
-                    <motion.div
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      className="bg-accent px-4 py-2 rounded-full shadow-glow"
-                    >
-                      <span className="text-white text-xs font-bold">
-                        {demoMessages[currentDemo].behaviorType}
-                      </span>
-                    </motion.div>
-                  </div>
+                  <p className="text-[#FF6B6B] text-[15px] font-semibold leading-5 italic text-center">
+                    {currentPhaseData.hiddenText}
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
 
+            {/* Analysis Layer */}
+            {showAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+                className="bg-[#0a0a0a] rounded-2xl p-4 w-[90%] shadow-[0_8px_16px_rgba(0,0,0,0.5)] border border-[#333]"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-full bg-[#FF6B6B] flex items-center justify-center shadow-[0_0_6px_rgba(255,107,107,0.6)]">
+                    <span className="text-white text-[11px] font-bold">AI</span>
+                  </div>
+                  <span className="text-white text-sm font-bold flex-1">SubText Analysis</span>
+                  <div className="bg-[rgba(255,0,0,0.2)] px-2 py-1 rounded-md border border-[rgba(255,0,0,0.3)]">
+                    <span className="text-[#ff4444] text-[9px] font-semibold">{currentPhaseData.manipulationType}</span>
+                  </div>
+                </div>
+                <p className="text-[#ccc] text-sm leading-5 font-medium">
+                  {typewriterText}<span className="text-[#FF6B6B] font-bold animate-pulse">|</span>
+                </p>
+              </motion.div>
+            )}
+
             {/* Training Stats */}
-            <div className="mt-6 pt-4 border-t border-border">
-              <p className="text-muted-foreground text-xs text-center">
-                Trained on <span className="text-accent font-bold">50,000+</span> real conversations
-              </p>
+            <div className="mt-8 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xl">⚡</span>
+                <p className="text-[#888] text-sm font-medium">
+                  Trained on <span className="text-[#FF6B6B] font-bold">50,000+</span> conversations
+                </p>
+              </div>
             </div>
-          </motion.div>
+          </div>
         )}
 
-        {/* Processing Animation */}
+        {/* Processing */}
         {isProcessing && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-card rounded-3xl p-12 shadow-card text-center"
+            className="py-12 text-center"
           >
             <motion.div
               animate={{ rotate: 360 }}
@@ -305,103 +326,108 @@ export default function AppScreen() {
             >
               😈
             </motion.div>
-            <p className="text-accent font-bold text-lg">Analyzing...</p>
-            <p className="text-muted-foreground text-sm mt-2">Decoding hidden intentions</p>
+            <p className="text-white text-lg font-bold">Analyzing...</p>
+            <p className="text-[#888] text-sm mt-2">Decoding hidden intentions</p>
           </motion.div>
         )}
 
         {/* Analysis Result */}
         {analysisResult && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-card rounded-3xl p-6 shadow-card space-y-6"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="bg-accent/20 px-3 py-1 rounded-full">
-                  <span className="text-accent text-xs font-bold">ANALYSIS COMPLETE</span>
+          <div className="space-y-4">
+            {/* Hidden Intent Card */}
+            <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
+              <div className="flex items-center px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
+                <div className="w-10 h-10 rounded-full mr-3 flex items-center justify-center">
+                  <div className="w-8 h-5 rounded-2xl border-2 border-[#FF6B6B] relative">
+                    <div className="w-2 h-2 rounded-full bg-[#FF6B6B] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-white text-lg font-bold">Hidden Intent</span>
+                    <div className="bg-[rgba(255,0,0,0.2)] px-2 py-1 rounded-md border border-[rgba(255,0,0,0.3)]">
+                      <span className="text-[#ff4444] text-[11px] font-semibold">MANIPULATION</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-3/5">
+                    <div className="h-0.5 flex-1 bg-[rgba(255,255,255,0.1)] rounded overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-[#FF6B6B] to-[#ff4444] w-[96%]"></div>
+                    </div>
+                    <span className="text-[#FF6B6B] text-[10px] font-semibold min-w-[30px]">96%</span>
+                  </div>
                 </div>
               </div>
-              <button onClick={handleReset} className="text-accent hover:text-accent-light text-sm font-medium">
-                New Analysis
-              </button>
-            </div>
-
-            {/* Hidden Intent */}
-            <div className="bg-accent/10 border border-accent/30 rounded-2xl p-5">
-              <p className="text-xs text-accent font-bold mb-2">🎯 HIDDEN INTENT:</p>
-              <p className="text-white leading-relaxed">{analysisResult.hiddenIntent}</p>
-            </div>
-
-            {/* Behavior Type Badge */}
-            <div className="flex items-center justify-center">
-              <div className="bg-accent px-4 py-2 rounded-full shadow-glow">
-                <span className="text-white text-sm font-bold">
-                  {analysisResult.behaviorType}
-                </span>
+              <div className="p-4">
+                <p className="text-white text-[15px] leading-[22px] font-medium">{analysisResult.hiddenIntent}</p>
               </div>
             </div>
 
-            {/* Strategic Reply */}
-            <div className="bg-background rounded-2xl p-5 border border-border">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xl">🛡️</span>
-                  <p className="text-xs text-accent font-bold">STRATEGIC REPLY:</p>
+            {/* Strategic Reply Card */}
+            <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
+              <div className="flex items-center px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
+                <div className="w-10 h-10 mr-3 flex items-center justify-center relative">
+                  <div className="w-8 h-9 bg-[#333] rounded-2xl rounded-bl-lg rounded-br-lg"></div>
+                  <div className="w-6 h-7 bg-[#FFD700] rounded-xl rounded-bl-md rounded-br-md absolute"></div>
+                  <div className="w-2 h-2 bg-[#333] rounded-full absolute"></div>
                 </div>
+                <div className="flex-1">
+                  <span className="text-white text-lg font-bold">Strategic Reply</span>
+                  <p className="text-[#888] text-xs font-medium">Protect yourself</p>
+                </div>
+              </div>
+              <div className="p-4 space-y-3">
+                <p className="text-white text-[15px] leading-[22px] font-medium mb-1">{analysisResult.strategicReply}</p>
                 <button
                   onClick={() => copyToClipboard(analysisResult.strategicReply)}
-                  className="text-accent hover:text-accent-light text-xs font-medium"
+                  className="bg-[rgba(255,107,107,0.2)] px-3 py-2 rounded-lg border border-[rgba(255,107,107,0.3)] inline-block"
                 >
-                  Copy
+                  <span className="text-[#FF6B6B] text-xs font-semibold">Copy</span>
                 </button>
               </div>
-              <p className="text-white leading-relaxed">{analysisResult.strategicReply}</p>
             </div>
-          </motion.div>
+
+            {/* New Analysis Button */}
+            <div className="pt-4">
+              <button
+                onClick={handleReset}
+                className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,107,107,0.3)] rounded-2xl shadow-[0_4px_8px_rgba(255,107,107,0.2)] hover:bg-[rgba(255,107,107,0.1)] transition-colors"
+              >
+                <div className="flex items-center justify-center py-3.5 px-5 gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-[rgba(255,107,107,0.3)] flex items-center justify-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B6B]"></div>
+                  </div>
+                  <span className="text-white text-base font-semibold">New Analysis</span>
+                </div>
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Input Methods */}
         {!analysisResult && !isProcessing && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-bold text-white text-center">
-              Start Your Analysis
-            </h2>
+          <div className="space-y-4 mt-6">
+            {/* Upload Button */}
+            <button
+              onClick={handleUploadClick}
+              className="w-full rounded-2xl overflow-hidden shadow-[0_6px_12px_rgba(255,107,107,0.3)]"
+            >
+              <div className="bg-gradient-to-r from-[#FF6B6B] to-[#ff8888] flex items-center justify-center py-4 px-6 gap-3">
+                <svg className="w-6 h-5" viewBox="0 0 24 20" fill="none">
+                  <rect x="0" y="4" width="24" height="16" rx="4" fill="rgba(255,255,255,0.9)" />
+                  <circle cx="12" cy="12" r="6" stroke="rgba(255,255,255,0.9)" strokeWidth="2" fill="rgba(255,255,255,0.3)" />
+                  <rect x="4" y="0" width="4" height="4" rx="2" fill="rgba(255,255,255,0.9)" />
+                </svg>
+                <span className="text-white text-lg font-bold">Upload Screenshot</span>
+              </div>
+            </button>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Upload Screenshot */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleUploadClick}
-                className={`p-6 rounded-3xl border-2 transition-all ${
-                  inputMethod === 'upload'
-                    ? 'bg-accent/10 border-accent shadow-glow'
-                    : 'bg-card border-border hover:border-accent/50'
-                }`}
-              >
-                <div className="text-4xl mb-3">📸</div>
-                <p className="text-white font-medium text-sm">Upload</p>
-                <p className="text-muted-foreground text-xs mt-1">Screenshot</p>
-              </motion.button>
-
-              {/* Manual Input */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleManualInput}
-                className={`p-6 rounded-3xl border-2 transition-all ${
-                  inputMethod === 'manual'
-                    ? 'bg-accent/10 border-accent shadow-glow'
-                    : 'bg-card border-border hover:border-accent/50'
-                }`}
-              >
-                <div className="text-4xl mb-3">✍️</div>
-                <p className="text-white font-medium text-sm">Type</p>
-                <p className="text-muted-foreground text-xs mt-1">Manually</p>
-              </motion.button>
-            </div>
+            {/* Manual Input Button */}
+            <button
+              onClick={handleManualInput}
+              className="w-full flex items-center justify-center bg-transparent py-3.5 px-5 rounded-xl border border-[rgba(255,255,255,0.3)] hover:border-[#FF6B6B] transition-colors"
+            >
+              <span className="text-white text-base font-semibold">✍️ Type Manually</span>
+            </button>
 
             <input
               ref={fileInputRef}
@@ -416,9 +442,9 @@ export default function AppScreen() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-card rounded-3xl p-4 shadow-card"
+                className="rounded-2xl overflow-hidden shadow-[0_6px_12px_rgba(0,0,0,0.3)]"
               >
-                <img src={imagePreview} alt="Preview" className="w-full rounded-2xl" />
+                <img src={imagePreview} alt="Preview" className="w-full" />
               </motion.div>
             )}
 
@@ -427,40 +453,33 @@ export default function AppScreen() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-card rounded-3xl p-6 shadow-card"
               >
                 <textarea
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
                   placeholder="Paste or type the conversation here..."
-                  className="w-full h-40 bg-background text-white rounded-2xl p-4 border border-border focus:border-accent focus:outline-none resize-none"
+                  className="w-full h-40 bg-[rgba(255,255,255,0.1)] text-white rounded-xl p-4 border border-[rgba(255,255,255,0.2)] focus:border-[#FF6B6B] focus:outline-none resize-none"
                 />
               </motion.div>
             )}
 
-            {/* Error Message */}
+            {/* Error */}
             {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-error/10 border border-error rounded-2xl p-4 text-center"
-              >
-                <p className="text-error text-sm">{error}</p>
-              </motion.div>
+              <div className="bg-[rgba(255,0,0,0.1)] border border-[rgba(255,0,0,0.3)] rounded-xl p-4 text-center">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
             )}
 
             {/* Analyze Button */}
             {(selectedImage || manualText) && (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <button
                 onClick={handleAnalyze}
-                className="w-full bg-accent hover:bg-accent-dark text-white font-bold py-4 rounded-3xl shadow-glow transition-all"
+                className="w-full rounded-xl overflow-hidden shadow-[0_4px_8px_rgba(255,107,107,0.3)]"
               >
-                Analyze Conversation
-              </motion.button>
+                <div className="bg-gradient-to-r from-[#FF6B6B] to-[#ff8888] py-3.5 px-5 text-center">
+                  <span className="text-white text-base font-bold">Analyze Conversation</span>
+                </div>
+              </button>
             )}
           </div>
         )}

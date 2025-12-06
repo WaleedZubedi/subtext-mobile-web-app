@@ -7,11 +7,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import * as api from '@/lib/api';
 
-// PayPal configuration
-const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
-const PAYPAL_BASIC_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID || '';
-const PAYPAL_PRO_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID || '';
-const PAYPAL_PREMIUM_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID || '';
+// PayPal configuration - hardcoded for reliability (same as backend)
+const PAYPAL_CLIENT_ID = 'AQkBJ3wyz9rRNdY36CFMsaQpchZTrqgaRPQgXA1zPtfnUVhVA4BeV75KIG7ikzGWBgYfRn8NULl2Ivqj';
+const PAYPAL_PLAN_IDS = {
+  basic: 'P-9HN26005PT8329537NEZC4AA',
+  pro: 'P-65030679KA417305BNEZC4AY',
+  premium: 'P-9LS85721FN3193001NEZC4BA',
+};
 
 const plans = [
   {
@@ -20,7 +22,7 @@ const plans = [
     price: '$4.99',
     priceValue: 4.99,
     limit: 25,
-    planId: PAYPAL_BASIC_PLAN_ID,
+    planId: PAYPAL_PLAN_IDS.basic,
     features: [
       '25 conversation analyses per month',
       'AI-powered manipulation detection',
@@ -36,7 +38,7 @@ const plans = [
     price: '$9.99',
     priceValue: 9.99,
     limit: 100,
-    planId: PAYPAL_PRO_PLAN_ID,
+    planId: PAYPAL_PLAN_IDS.pro,
     features: [
       '100 conversation analyses per month',
       'Everything in Basic',
@@ -52,7 +54,7 @@ const plans = [
     price: '$19.99',
     priceValue: 19.99,
     limit: -1,
-    planId: PAYPAL_PREMIUM_PLAN_ID,
+    planId: PAYPAL_PLAN_IDS.premium,
     features: [
       'Unlimited analyses',
       'Everything in Pro',
@@ -73,6 +75,7 @@ export default function Subscription() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -85,6 +88,7 @@ export default function Subscription() {
       try {
         const status = await api.getSubscriptionStatus();
         setCurrentSubscription(status);
+        console.log('Current subscription status:', status);
       } catch (err) {
         console.error('Failed to fetch subscription:', err);
       }
@@ -93,28 +97,64 @@ export default function Subscription() {
     fetchStatus();
   }, [user, router]);
 
-  const handleApprove = async (data: any, actions: any, tier: string) => {
+  const handleCreateSubscription = (data: any, actions: any, plan: typeof plans[0]) => {
+    console.log('Creating subscription for plan:', plan.id, 'with PayPal plan ID:', plan.planId);
+    setDebugInfo(`Creating subscription: ${plan.id} (${plan.planId})`);
+
+    if (!plan.planId) {
+      setError('PayPal plan ID is not configured. Please contact support.');
+      return Promise.reject(new Error('Plan ID not configured'));
+    }
+
+    return actions.subscription.create({
+      plan_id: plan.planId,
+    });
+  };
+
+  const handleApprove = async (data: any, plan: typeof plans[0]) => {
+    console.log('PayPal subscription approved:', data);
+    setDebugInfo(`PayPal approved: ${data.subscriptionID}`);
     setLoading(true);
     setError('');
 
     try {
-      // Create subscription in backend
-      await api.createSubscription(data.subscriptionID, tier);
+      console.log('Calling backend to create subscription...', {
+        subscriptionId: data.subscriptionID,
+        tier: plan.id,
+      });
 
-      // Refresh subscription status
+      // Create subscription in backend
+      const result = await api.createSubscription(data.subscriptionID, plan.id);
+      console.log('Backend response:', result);
+
+      if (!result.success) {
+        throw new Error(result.message || 'Subscription creation failed');
+      }
+
+      // Refresh subscription status in context
       await refreshSubscriptionStatus();
 
       setSuccess(true);
+      setDebugInfo('Subscription activated successfully!');
 
       // Redirect to app after success
       setTimeout(() => {
         router.push('/app');
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Failed to activate subscription');
+      console.error('Subscription activation error:', err);
+      const errorMessage = err.message || 'Failed to activate subscription';
+      setError(errorMessage);
+      setDebugInfo(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePayPalError = (err: any) => {
+    console.error('PayPal error:', err);
+    setError('PayPal payment failed. Please try again.');
+    setDebugInfo(`PayPal error: ${JSON.stringify(err)}`);
   };
 
   if (!user) {
@@ -134,7 +174,7 @@ export default function Subscription() {
             Subscription Activated!
           </h2>
           <p className="text-muted-foreground mb-6">
-            You now have full access to SubText. Redirecting...
+            You now have full access to SubText. Redirecting to the app...
           </p>
           <div className="animate-pulse text-accent font-bold">Loading...</div>
         </motion.div>
@@ -145,7 +185,7 @@ export default function Subscription() {
   return (
     <PayPalScriptProvider
       options={{
-        clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
+        clientId: PAYPAL_CLIENT_ID,
         vault: true,
         intent: 'subscription',
       }}
@@ -190,7 +230,9 @@ export default function Subscription() {
                 ✓ Active Subscription: {currentSubscription.subscription?.tier?.toUpperCase()}
               </p>
               <p className="text-muted-foreground text-xs mt-1">
-                {currentSubscription.usage?.remaining} analyses remaining this month
+                {currentSubscription.usage?.remaining === -1
+                  ? 'Unlimited'
+                  : currentSubscription.usage?.remaining} analyses remaining this month
               </p>
             </motion.div>
           )}
@@ -202,8 +244,16 @@ export default function Subscription() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-error/10 border border-error rounded-2xl p-4 mb-6"
             >
+              <p className="text-error text-sm font-bold">Error:</p>
               <p className="text-error text-sm">{error}</p>
             </motion.div>
+          )}
+
+          {/* Debug Info (development only) */}
+          {process.env.NODE_ENV === 'development' && debugInfo && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 mb-6">
+              <p className="text-blue-400 text-xs font-mono">{debugInfo}</p>
+            </div>
           )}
 
           {/* Plans */}
@@ -258,35 +308,45 @@ export default function Subscription() {
                 {/* Subscribe Button / PayPal */}
                 {selectedPlan === plan.id ? (
                   <div className="mt-4">
-                    <PayPalButtons
-                      createSubscription={(data, actions) => {
-                        return actions.subscription.create({
-                          plan_id: plan.planId,
-                        });
-                      }}
-                      onApprove={(data, actions) => handleApprove(data, actions, plan.id)}
-                      onError={(err) => {
-                        console.error('PayPal error:', err);
-                        setError('Payment failed. Please try again.');
-                      }}
-                      style={{
-                        layout: 'vertical',
-                        color: 'gold',
-                        shape: 'rect',
-                        label: 'subscribe',
-                      }}
-                    />
-                    <button
-                      onClick={() => setSelectedPlan(null)}
-                      className="w-full mt-3 text-muted-foreground text-sm hover:text-accent transition-colors"
-                    >
-                      Cancel
-                    </button>
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <div className="animate-spin text-4xl mb-2">😈</div>
+                        <p className="text-accent font-bold">Activating subscription...</p>
+                      </div>
+                    ) : (
+                      <>
+                        <PayPalButtons
+                          createSubscription={(data, actions) => handleCreateSubscription(data, actions, plan)}
+                          onApprove={(data) => handleApprove(data, plan)}
+                          onError={handlePayPalError}
+                          onCancel={() => {
+                            console.log('PayPal subscription cancelled by user');
+                            setDebugInfo('Payment cancelled by user');
+                          }}
+                          style={{
+                            layout: 'vertical',
+                            color: 'gold',
+                            shape: 'rect',
+                            label: 'subscribe',
+                          }}
+                        />
+                        <button
+                          onClick={() => setSelectedPlan(null)}
+                          className="w-full mt-3 text-muted-foreground text-sm hover:text-accent transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <button
-                    onClick={() => setSelectedPlan(plan.id)}
-                    disabled={loading}
+                    onClick={() => {
+                      setSelectedPlan(plan.id);
+                      setError('');
+                      setDebugInfo(`Selected plan: ${plan.id}`);
+                    }}
+                    disabled={loading || currentSubscription?.subscription?.tier === plan.id}
                     className={`w-full py-4 rounded-2xl font-bold transition-all ${
                       plan.popular
                         ? 'bg-accent hover:bg-accent-dark text-white shadow-glow'
@@ -305,12 +365,14 @@ export default function Subscription() {
           {/* Footer Info */}
           <div className="bg-card rounded-2xl p-4 text-center">
             <p className="text-muted-foreground text-xs">
-              All plans include a <span className="text-accent font-bold">hard paywall</span>.
-              Cancel anytime. Secure payments via PayPal.
+              Secure payments via PayPal. Cancel anytime.
+            </p>
+            <p className="text-muted-foreground text-xs mt-1">
+              Subscription will auto-renew monthly.
             </p>
           </div>
 
-          {/* Skip Option (for testing) */}
+          {/* Skip Option (for testing in development) */}
           {process.env.NODE_ENV === 'development' && (
             <div className="mt-6 text-center">
               <button

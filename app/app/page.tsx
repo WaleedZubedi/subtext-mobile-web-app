@@ -6,43 +6,40 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as api from '@/lib/api';
 
-// Demo phases - exact match from Subtext-main
-const phases = [
+// Demo conversation examples
+const demoExamples = [
   {
-    surfaceText: "Hey, are you free tonight?",
-    hiddenText: "I need validation and attention",
-    analysis: "Classic availability test → Fishing for priority status",
-    manipulationType: "ATTENTION-SEEKING"
+    message: "Hey, I was just thinking about you...",
+    intent: "Testing if you'll respond to vague emotional bait",
+    behavior: "ATTENTION SEEKING"
   },
   {
-    surfaceText: "Just checking in on you 😊",
-    hiddenText: "I want to control your time",
-    analysis: "Fake concern → Boundary invasion disguised as care",
-    manipulationType: "CONTROLLING"
+    message: "You're the only one who really gets me",
+    intent: "Creating false intimacy to make you feel special and obligated",
+    behavior: "LOVE BOMBING"
   },
   {
-    surfaceText: "We should catch up soon!",
-    hiddenText: "I need something from you",
-    analysis: "Vague obligation → Creating social debt without commitment",
-    manipulationType: "MANIPULATIVE"
+    message: "I guess I'll just figure it out myself then",
+    intent: "Guilt-tripping you into offering help they never directly asked for",
+    behavior: "PASSIVE AGGRESSIVE"
   },
   {
-    surfaceText: "Miss our conversations...",
-    hiddenText: "Guilt-tripping you to respond",
-    analysis: "Emotional leverage → Weaponizing nostalgia for response",
-    manipulationType: "GUILT-TRIPPING"
+    message: "No worries if you're busy, I understand...",
+    intent: "Fake understanding that's actually pressuring you to prove you care",
+    behavior: "COVERT MANIPULATION"
   }
 ];
 
 export default function AppScreen() {
-  const { user, hasSubscription, logout, loading } = useAuth();
+  const { user, hasSubscription, loading } = useAuth();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState(0);
-  const [showScanLine, setShowScanLine] = useState(false);
-  const [showHiddenIntent, setShowHiddenIntent] = useState(false);
-  const [showAnalysis, setShowAnalysis] = useState(false);
-  const [typewriterText, setTypewriterText] = useState('');
+
+  // Demo animation states
+  const [currentExample, setCurrentExample] = useState(0);
+  const [animationPhase, setAnimationPhase] = useState<'typing' | 'scanning' | 'revealing' | 'complete'>('typing');
+  const [displayedMessage, setDisplayedMessage] = useState('');
+  const [scanProgress, setScanProgress] = useState(0);
 
   // Analysis states
   const [inputMethod, setInputMethod] = useState<'upload' | 'manual' | null>(null);
@@ -53,9 +50,9 @@ export default function AppScreen() {
   const [extractedText, setExtractedText] = useState('');
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isAnimatingRef = useRef(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -64,95 +61,59 @@ export default function AppScreen() {
     }
   }, [user, loading, router]);
 
-  // Typewriter effect
-  const typeWriter = async (text: string) => {
-    setTypewriterText('');
-    for (let i = 0; i <= text.length; i++) {
-      setTypewriterText(text.substring(0, i));
-      await new Promise(resolve => setTimeout(resolve, 40));
-    }
-  };
-
-  // Demo animation loop
+  // Smooth demo animation loop
   useEffect(() => {
-    let timeouts: NodeJS.Timeout[] = [];
-    let isActive = true;
+    if (analysisResult || isProcessing) return;
 
-    const runPhaseAnimation = async (phaseIndex: number) => {
-      if (!isActive || isAnimatingRef.current) return;
-      isAnimatingRef.current = true;
+    let isMounted = true;
+    const example = demoExamples[currentExample];
 
-      // Reset all states
-      setShowScanLine(false);
-      setShowHiddenIntent(false);
-      setShowAnalysis(false);
-      setTypewriterText('');
-      setCurrentPhase(phaseIndex);
+    const runAnimation = async () => {
+      // Phase 1: Type out message
+      setAnimationPhase('typing');
+      setDisplayedMessage('');
+      setScanProgress(0);
 
-      // Wait for message to appear
-      await new Promise(resolve => {
-        timeouts.push(setTimeout(resolve, 1200));
-      });
-      if (!isActive) return;
-
-      // Start scan line
-      setShowScanLine(true);
-      await new Promise(resolve => {
-        timeouts.push(setTimeout(resolve, 1400));
-      });
-      if (!isActive) return;
-
-      // Hide scan line, show hidden intent
-      setShowScanLine(false);
-      setShowHiddenIntent(true);
-      await new Promise(resolve => {
-        timeouts.push(setTimeout(resolve, 900));
-      });
-      if (!isActive) return;
-
-      // Show analysis box
-      setShowAnalysis(true);
-      await new Promise(resolve => {
-        timeouts.push(setTimeout(resolve, 300));
-      });
-      if (!isActive) return;
-
-      // Type out analysis
-      const phase = phases[phaseIndex];
-      await typeWriter(phase.analysis);
-      if (!isActive) return;
-
-      // Stay visible for 2.5 seconds
-      await new Promise(resolve => {
-        timeouts.push(setTimeout(resolve, 2500));
-      });
-      if (!isActive) return;
-
-      isAnimatingRef.current = false;
-    };
-
-    const animationLoop = async () => {
-      let phaseIndex = 0;
-
-      while (isActive) {
-        await runPhaseAnimation(phaseIndex);
-        phaseIndex = (phaseIndex + 1) % phases.length;
-
-        // Short pause between phases
-        await new Promise(resolve => {
-          timeouts.push(setTimeout(resolve, 800));
-        });
+      for (let i = 0; i <= example.message.length; i++) {
+        if (!isMounted) return;
+        setDisplayedMessage(example.message.slice(0, i));
+        await new Promise(r => setTimeout(r, 35));
       }
+
+      await new Promise(r => setTimeout(r, 500));
+      if (!isMounted) return;
+
+      // Phase 2: Scan animation
+      setAnimationPhase('scanning');
+      for (let i = 0; i <= 100; i += 2) {
+        if (!isMounted) return;
+        setScanProgress(i);
+        await new Promise(r => setTimeout(r, 20));
+      }
+
+      await new Promise(r => setTimeout(r, 200));
+      if (!isMounted) return;
+
+      // Phase 3: Reveal intent
+      setAnimationPhase('revealing');
+      await new Promise(r => setTimeout(r, 300));
+      if (!isMounted) return;
+
+      // Phase 4: Show complete
+      setAnimationPhase('complete');
+      await new Promise(r => setTimeout(r, 3000));
+      if (!isMounted) return;
+
+      // Move to next example
+      setCurrentExample((prev) => (prev + 1) % demoExamples.length);
     };
 
-    animationLoop();
+    runAnimation();
 
     return () => {
-      isActive = false;
-      isAnimatingRef.current = false;
-      timeouts.forEach(timeout => clearTimeout(timeout));
+      isMounted = false;
     };
-  }, []); // Only run once on mount
+  }, [currentExample, analysisResult, isProcessing]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -187,15 +148,11 @@ export default function AppScreen() {
 
       if (inputMethod === 'upload' && selectedImage) {
         const ocrResult = await api.uploadImageForOCR(selectedImage);
-
-        // Extract text from the response structure
         if (ocrResult.ParsedResults && ocrResult.ParsedResults[0]?.ParsedText) {
           textToAnalyze = ocrResult.ParsedResults[0].ParsedText;
         } else if (ocrResult.text) {
-          // Fallback for legacy format
           textToAnalyze = ocrResult.text;
         }
-
         setExtractedText(textToAnalyze);
       } else if (inputMethod === 'manual') {
         textToAnalyze = manualText;
@@ -213,17 +170,11 @@ export default function AppScreen() {
       console.error('Analysis error:', err);
       let errorMessage = err.message || 'Analysis failed';
 
-      // Handle specific error cases
       if (errorMessage.includes('Invalid image') || errorMessage.includes('does not contain text messages')) {
-        errorMessage = 'Please upload a screenshot of a text conversation (iMessage, WhatsApp, etc.)';
-      } else if (errorMessage.includes('No messages found')) {
-        errorMessage = 'Could not find any messages in the image. Please try a clearer screenshot.';
+        errorMessage = 'Please upload a screenshot of a text conversation';
       } else if (errorMessage.includes('Subscription required')) {
-        errorMessage = 'Please subscribe to use this feature';
         router.push('/subscription');
         return;
-      } else if (errorMessage.includes('Usage limit reached')) {
-        errorMessage = 'You have reached your monthly analysis limit. Please upgrade your plan.';
       }
 
       setError(errorMessage);
@@ -240,315 +191,345 @@ export default function AppScreen() {
     setExtractedText('');
     setAnalysisResult(null);
     setError('');
+    setCopied(false);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#1a1a1a] via-[#2d2d2d] to-[#1a1a1a] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4 animate-pulse">😈</div>
-          <p className="text-[#FF6B6B] font-bold">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <motion.div
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-center"
+        >
+          <div className="text-5xl mb-4">👁️</div>
+          <p className="text-[#FF6B6B] font-medium">Loading...</p>
+        </motion.div>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
-  const currentPhaseData = phases[currentPhase];
+  const currentDemo = demoExamples[currentExample];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a1a1a] via-[#2d2d2d] to-[#1a1a1a]">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-50 bg-[rgba(26,26,26,0.98)] border-b-2 border-[rgba(255,107,107,0.4)] shadow-xl">
-        <div className="container-mobile flex items-center justify-between py-4">
-          <div className="flex-1"></div>
-          <h1 className="text-3xl font-bold tracking-tight">
+    <div className="min-h-screen bg-[#0a0a0a]">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-[#1a1a1a]">
+        <div className="flex items-center justify-between px-5 py-4">
+          <div className="w-10" />
+          <h1 className="text-2xl font-bold">
             <span className="text-white">Sub</span>
             <span className="text-[#FF6B6B]">Text</span>
           </h1>
-          <div className="flex-1 flex justify-end">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-3 hover:opacity-80 transition-opacity"
-            >
-              <div className="space-y-1.5">
-                <div className="w-6 h-0.5 bg-[#FF6B6B] rounded"></div>
-                <div className="w-6 h-0.5 bg-[#FF6B6B] rounded"></div>
-                <div className="w-6 h-0.5 bg-[#FF6B6B] rounded"></div>
-              </div>
-            </button>
-          </div>
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#1a1a1a] transition-colors"
+          >
+            <div className="space-y-1">
+              <div className="w-4 h-0.5 bg-white/70 rounded" />
+              <div className="w-4 h-0.5 bg-white/70 rounded" />
+              <div className="w-4 h-0.5 bg-white/70 rounded" />
+            </div>
+          </button>
         </div>
 
-        {/* Dropdown Menu */}
+        {/* Menu Dropdown */}
         <AnimatePresence>
           {showMenu && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="border-t border-[rgba(255,107,107,0.2)] bg-[rgba(26,26,26,0.98)]"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute top-full left-0 right-0 bg-[#0a0a0a] border-b border-[#1a1a1a] p-4 space-y-2"
             >
-              <div className="container-mobile py-3 space-y-2">
-                <button onClick={() => router.push('/settings')} className="flex items-center w-full text-left px-4 py-3 text-white bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,107,107,0.1)] rounded-xl transition-colors border border-transparent hover:border-[rgba(255,107,107,0.2)]">
-                  <div className="w-11 h-11 rounded-full bg-[rgba(255,107,107,0.12)] border border-[rgba(255,107,107,0.2)] flex items-center justify-center mr-4">
-                    <span className="text-xl">⚙️</span>
-                  </div>
-                  <span className="font-semibold">Settings</span>
-                </button>
-                <button onClick={() => router.push('/subscription')} className="flex items-center w-full text-left px-4 py-3 text-white bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,107,107,0.1)] rounded-xl transition-colors border border-transparent hover:border-[rgba(255,107,107,0.2)]">
-                  <div className="w-11 h-11 rounded-full bg-[rgba(255,107,107,0.12)] border border-[rgba(255,107,107,0.2)] flex items-center justify-center mr-4">
-                    <span className="text-xl">💎</span>
-                  </div>
-                  <span className="font-semibold">Subscription</span>
-                </button>
-              </div>
+              <button
+                onClick={() => { router.push('/settings'); setShowMenu(false); }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#1a1a1a] transition-colors"
+              >
+                <span className="text-lg">⚙️</span>
+                <span className="text-white font-medium">Settings</span>
+              </button>
+              <button
+                onClick={() => { router.push('/subscription'); setShowMenu(false); }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#1a1a1a] transition-colors"
+              >
+                <span className="text-lg">💎</span>
+                <span className="text-white font-medium">Subscription</span>
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
       </header>
 
-      <div className="container-mobile py-8 px-5">
-        {/* Demo Animation Section */}
+      <main className="px-5 py-6">
+        {/* Demo Animation - Only show when not analyzing */}
         {!analysisResult && !isProcessing && (
-          <div className="py-10 px-5 min-h-[400px] flex flex-col items-center justify-center">
-            {/* Message Bubble */}
-            <div className="bg-[#2d2d2d] rounded-[20px] p-4.5 max-w-[85%] shadow-[0_4px_8px_rgba(0,0,0,0.3)] border border-[#404040] mb-4 relative overflow-hidden">
-              <p className="text-white text-base font-medium leading-[22px]">
-                {currentPhaseData.surfaceText}
-              </p>
-
-              {/* Scan Line */}
-              {showScanLine && (
-                <motion.div
-                  className="absolute top-0 bottom-0 w-0.5 bg-[#FF6B6B]"
-                  style={{
-                    boxShadow: '0 0 8px rgba(255, 107, 107, 0.8)',
-                  }}
-                  initial={{ left: '-30px' }}
-                  animate={{ left: 'calc(100% + 30px)' }}
-                  transition={{ duration: 1.2, ease: 'linear' }}
-                />
-              )}
-            </div>
-
-            {/* Hidden Intent Bubble */}
-            {showHiddenIntent && (
+          <div className="mb-8">
+            {/* Demo Card */}
+            <div className="relative">
+              {/* Message bubble */}
               <motion.div
-                initial={{ opacity: 0, y: -30, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.9 }}
-                className="bg-[#1a1a1a] rounded-[18px] p-4 max-w-[85%] shadow-[0_4px_12px_rgba(255,107,107,0.4)] border-2 border-[#FF6B6B] mb-4 relative"
+                key={currentExample}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[#1a1a1a] rounded-2xl p-5 border border-[#252525] relative overflow-hidden"
               >
-                {/* Arrow pointing up */}
-                <div className="absolute -top-2.5 left-1/2 -ml-2.5 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-[#FF6B6B]"></div>
+                {/* Scan overlay */}
+                {animationPhase === 'scanning' && (
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FF6B6B]/20 to-transparent"
+                    style={{ left: `${scanProgress - 100}%`, width: '100%' }}
+                  />
+                )}
 
-                <p className="text-[#FF6B6B] text-[15px] font-semibold leading-5 italic text-center">
-                  {currentPhaseData.hiddenText}
-                </p>
-              </motion.div>
-            )}
+                {/* Scan line */}
+                {animationPhase === 'scanning' && (
+                  <motion.div
+                    className="absolute top-0 bottom-0 w-[2px] bg-[#FF6B6B] shadow-[0_0_10px_#FF6B6B,0_0_20px_#FF6B6B]"
+                    style={{ left: `${scanProgress}%` }}
+                  />
+                )}
 
-            {/* Analysis Layer */}
-            {showAnalysis && (
-              <motion.div
-                initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="bg-[#0a0a0a] rounded-2xl p-4 w-[90%] shadow-[0_8px_16px_rgba(0,0,0,0.5)] border border-[#333]"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-full bg-[#FF6B6B] flex items-center justify-center shadow-[0_0_6px_rgba(255,107,107,0.6)]">
-                    <span className="text-white text-[11px] font-bold">AI</span>
-                  </div>
-                  <span className="text-white text-sm font-bold flex-1">SubText Analysis</span>
-                  <div className="bg-[rgba(255,0,0,0.2)] px-2 py-1 rounded-md border border-[rgba(255,0,0,0.3)]">
-                    <span className="text-[#ff4444] text-[9px] font-semibold">{currentPhaseData.manipulationType}</span>
-                  </div>
-                </div>
-                <p className="text-[#ccc] text-sm leading-5 font-medium">
-                  {typewriterText}
-                  {typewriterText.length < currentPhaseData.analysis.length && (
-                    <span className="text-[#FF6B6B] font-bold animate-pulse ml-0.5">|</span>
+                <p className="text-white text-lg font-medium leading-relaxed">
+                  "{displayedMessage}"
+                  {animationPhase === 'typing' && (
+                    <motion.span
+                      animate={{ opacity: [1, 0] }}
+                      transition={{ duration: 0.5, repeat: Infinity }}
+                      className="text-[#FF6B6B] ml-0.5"
+                    >
+                      |
+                    </motion.span>
                   )}
                 </p>
-              </motion.div>
-            )}
 
-            {/* Training Stats */}
-            <div className="mt-8 text-center">
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-xl">⚡</span>
-                <p className="text-[#888] text-sm font-medium">
-                  Trained on <span className="text-[#FF6B6B] font-bold">50,000+</span> conversations
-                </p>
-              </div>
+                {/* Scanning indicator */}
+                {animationPhase === 'scanning' && (
+                  <div className="mt-4 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#FF6B6B] animate-pulse" />
+                    <span className="text-[#FF6B6B] text-sm font-medium">Scanning for manipulation...</span>
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Hidden Intent Reveal */}
+              <AnimatePresence>
+                {(animationPhase === 'revealing' || animationPhase === 'complete') && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                    className="mt-3 bg-gradient-to-br from-[#1a0a0a] to-[#0a0a0a] rounded-2xl p-5 border border-[#FF6B6B]/30 shadow-[0_0_30px_rgba(255,107,107,0.15)]"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#FF6B6B]/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-lg">👁️</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-white font-bold">Hidden Intent</span>
+                          <span className="px-2 py-0.5 bg-[#FF6B6B]/20 text-[#FF6B6B] text-xs font-bold rounded-full border border-[#FF6B6B]/30">
+                            {currentDemo.behavior}
+                          </span>
+                        </div>
+                        <p className="text-[#ccc] text-sm leading-relaxed">
+                          {currentDemo.intent}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Stats */}
+            <div className="mt-6 text-center">
+              <p className="text-[#666] text-sm">
+                Trained on <span className="text-[#FF6B6B] font-bold">50,000+</span> manipulative conversations
+              </p>
             </div>
           </div>
         )}
 
-        {/* Processing */}
+        {/* Processing State */}
         {isProcessing && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="py-12 text-center"
+            className="py-20 text-center"
           >
             <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-              className="text-6xl mb-4"
+              animate={{
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-6xl mb-6"
             >
-              😈
+              👁️
             </motion.div>
-            <p className="text-white text-lg font-bold">Analyzing...</p>
-            <p className="text-[#888] text-sm mt-2">Decoding hidden intentions</p>
+            <p className="text-white text-xl font-bold mb-2">Analyzing...</p>
+            <p className="text-[#666] text-sm">Exposing their real intentions</p>
+
+            {/* Progress bar */}
+            <div className="mt-6 max-w-xs mx-auto">
+              <div className="h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-[#FF6B6B] to-[#ff8888]"
+                  animate={{ width: ['0%', '100%'] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* Analysis Result */}
+        {/* Analysis Results */}
         {analysisResult && (
-          <div className="space-y-4">
-            {/* Analyzed Image Preview */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-5"
+          >
+            {/* Analyzed Image */}
             {imagePreview && (
-              <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden p-4">
-                <div className="mb-3">
-                  <span className="text-[#888] text-sm font-medium">Analyzed Image:</span>
-                </div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl overflow-hidden border border-[#252525]"
+              >
                 <img
                   src={imagePreview}
-                  alt="Analyzed screenshot"
-                  className="w-full rounded-lg border border-[#333]"
+                  alt="Analyzed"
+                  className="w-full max-h-[300px] object-contain bg-[#0f0f0f]"
                 />
-              </div>
+              </motion.div>
             )}
 
-            {/* Extracted Text Preview (if available) */}
-            {extractedText && (
-              <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
-                <div className="px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
-                  <span className="text-white text-sm font-bold">Extracted Messages:</span>
-                </div>
-                <div className="p-4">
-                  <p className="text-[#aaa] text-sm leading-relaxed whitespace-pre-wrap">{extractedText}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Hidden Intent Card */}
-            <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
-              <div className="flex items-center px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
-                <div className="w-10 h-10 rounded-full mr-3 flex items-center justify-center">
-                  <div className="w-8 h-5 rounded-2xl border-2 border-[#FF6B6B] relative">
-                    <div className="w-2 h-2 rounded-full bg-[#FF6B6B] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white text-lg font-bold">Hidden Intent</span>
-                    <div className="bg-[rgba(255,0,0,0.2)] px-2 py-1 rounded-md border border-[rgba(255,0,0,0.3)]">
-                      <span className="text-[#ff4444] text-[11px] font-semibold">MANIPULATION</span>
+            {/* Main Analysis Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-gradient-to-br from-[#1a0f0f] to-[#0a0a0a] rounded-3xl border border-[#FF6B6B]/20 overflow-hidden shadow-[0_0_40px_rgba(255,107,107,0.1)]"
+            >
+              {/* Header */}
+              <div className="bg-[#FF6B6B]/10 px-5 py-4 border-b border-[#FF6B6B]/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-[#FF6B6B]/20 flex items-center justify-center">
+                      <span className="text-2xl">👁️</span>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-bold text-lg">Hidden Intent Detected</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="h-1.5 w-20 bg-[#FF6B6B]/20 rounded-full overflow-hidden">
+                          <div className="h-full w-[95%] bg-gradient-to-r from-[#FF6B6B] to-[#ff4444]" />
+                        </div>
+                        <span className="text-[#FF6B6B] text-xs font-bold">95%</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 w-3/5">
-                    <div className="h-0.5 flex-1 bg-[rgba(255,255,255,0.1)] rounded overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#FF6B6B] to-[#ff4444] w-[96%]"></div>
-                    </div>
-                    <span className="text-[#FF6B6B] text-[10px] font-semibold min-w-[30px]">96%</span>
-                  </div>
+                  {/* Behavior Pill */}
+                  {analysisResult.behaviorType && (
+                    <span className="px-3 py-1.5 bg-[#FF6B6B] text-white text-xs font-bold rounded-full uppercase tracking-wide">
+                      {analysisResult.behaviorType}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="p-4">
-                <p className="text-white text-[15px] leading-[22px] font-medium">{analysisResult.hiddenIntent}</p>
-              </div>
-            </div>
 
-            {/* Behavior Type Card */}
-            {analysisResult.behaviorType && (
-              <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
-                <div className="px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
-                  <span className="text-white text-sm font-bold">Behavior Type:</span>
-                </div>
-                <div className="p-4">
-                  <div className="inline-block bg-[rgba(255,107,107,0.15)] px-4 py-2 rounded-lg border border-[rgba(255,107,107,0.3)]">
-                    <span className="text-[#FF6B6B] text-sm font-semibold">{analysisResult.behaviorType}</span>
-                  </div>
-                </div>
+              {/* Intent Content */}
+              <div className="p-5">
+                <p className="text-white text-base leading-relaxed">
+                  {analysisResult.hiddenIntent}
+                </p>
               </div>
-            )}
+            </motion.div>
 
             {/* Strategic Reply Card */}
-            <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
-              <div className="flex items-center px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
-                <div className="w-10 h-10 mr-3 flex items-center justify-center relative">
-                  <div className="w-8 h-9 bg-[#333] rounded-2xl rounded-bl-lg rounded-br-lg"></div>
-                  <div className="w-6 h-7 bg-[#FFD700] rounded-xl rounded-bl-md rounded-br-md absolute"></div>
-                  <div className="w-2 h-2 bg-[#333] rounded-full absolute"></div>
-                </div>
-                <div className="flex-1">
-                  <span className="text-white text-lg font-bold">Strategic Reply</span>
-                  <p className="text-[#888] text-xs font-medium">Protect yourself</p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-[#0f0f0f] rounded-3xl border border-[#252525] overflow-hidden"
+            >
+              {/* Header */}
+              <div className="bg-[#1a1a1a] px-5 py-4 border-b border-[#252525]">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FFA500] flex items-center justify-center">
+                    <span className="text-2xl">⚡</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold text-lg">Savage Reply</h3>
+                    <p className="text-[#666] text-sm">Call them out</p>
+                  </div>
                 </div>
               </div>
-              <div className="p-4 space-y-3">
-                <p className="text-white text-[15px] leading-[22px] font-medium mb-1">{analysisResult.strategicReply}</p>
+
+              {/* Reply Content */}
+              <div className="p-5">
+                <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-[#252525]">
+                  <p className="text-white text-base leading-relaxed italic">
+                    "{analysisResult.strategicReply}"
+                  </p>
+                </div>
+
+                {/* Copy Button */}
                 <button
                   onClick={() => copyToClipboard(analysisResult.strategicReply)}
-                  className="bg-[rgba(255,107,107,0.2)] px-3 py-2 rounded-lg border border-[rgba(255,107,107,0.3)] inline-block"
+                  className={`mt-4 w-full py-3 rounded-xl font-bold transition-all ${
+                    copied
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-[#FF6B6B] text-white hover:bg-[#ff5555]'
+                  }`}
                 >
-                  <span className="text-[#FF6B6B] text-xs font-semibold">Copy</span>
+                  {copied ? '✓ Copied!' : 'Copy Reply'}
                 </button>
               </div>
-            </div>
+            </motion.div>
 
             {/* New Analysis Button */}
-            <div className="pt-4">
-              <button
-                onClick={handleReset}
-                className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,107,107,0.3)] rounded-2xl shadow-[0_4px_8px_rgba(255,107,107,0.2)] hover:bg-[rgba(255,107,107,0.1)] transition-colors"
-              >
-                <div className="flex items-center justify-center py-3.5 px-5 gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-[rgba(255,107,107,0.3)] flex items-center justify-center">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B6B]"></div>
-                  </div>
-                  <span className="text-white text-base font-semibold">New Analysis</span>
-                </div>
-              </button>
-            </div>
-          </div>
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              onClick={handleReset}
+              className="w-full py-4 rounded-2xl border border-[#333] text-white font-bold hover:bg-[#1a1a1a] transition-colors"
+            >
+              🔄 Analyze Another
+            </motion.button>
+          </motion.div>
         )}
 
-        {/* Input Methods */}
+        {/* Input Section */}
         {!analysisResult && !isProcessing && (
-          <div className="space-y-4 mt-6">
+          <div className="space-y-4">
             {/* Upload Button */}
             <button
               onClick={handleUploadClick}
-              className="w-full rounded-2xl overflow-hidden shadow-[0_6px_12px_rgba(255,107,107,0.3)]"
+              className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#ff5555] rounded-2xl py-4 px-6 flex items-center justify-center gap-3 shadow-[0_4px_20px_rgba(255,107,107,0.3)] hover:shadow-[0_4px_30px_rgba(255,107,107,0.4)] transition-all"
             >
-              <div className="bg-gradient-to-r from-[#FF6B6B] to-[#ff8888] flex items-center justify-center py-4 px-6 gap-3">
-                <svg className="w-6 h-5" viewBox="0 0 24 20" fill="none">
-                  <rect x="0" y="4" width="24" height="16" rx="4" fill="rgba(255,255,255,0.9)" />
-                  <circle cx="12" cy="12" r="6" stroke="rgba(255,255,255,0.9)" strokeWidth="2" fill="rgba(255,255,255,0.3)" />
-                  <rect x="4" y="0" width="4" height="4" rx="2" fill="rgba(255,255,255,0.9)" />
-                </svg>
-                <span className="text-white text-lg font-bold">Upload Screenshot</span>
-              </div>
+              <span className="text-xl">📸</span>
+              <span className="text-white font-bold text-lg">Upload Screenshot</span>
             </button>
 
             {/* Manual Input Button */}
             <button
               onClick={handleManualInput}
-              className="w-full flex items-center justify-center bg-transparent py-3.5 px-5 rounded-xl border border-[rgba(255,255,255,0.3)] hover:border-[#FF6B6B] transition-colors"
+              className="w-full py-4 rounded-2xl border border-[#333] text-white font-medium hover:bg-[#1a1a1a] hover:border-[#444] transition-all flex items-center justify-center gap-2"
             >
-              <span className="text-white text-base font-semibold">✍️ Type Manually</span>
+              <span>✍️</span>
+              <span>Paste Text Instead</span>
             </button>
 
             <input
@@ -564,7 +545,7 @@ export default function AppScreen() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl overflow-hidden shadow-[0_6px_12px_rgba(0,0,0,0.3)]"
+                className="rounded-2xl overflow-hidden border border-[#333]"
               >
                 <img src={imagePreview} alt="Preview" className="w-full" />
               </motion.div>
@@ -579,33 +560,37 @@ export default function AppScreen() {
                 <textarea
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
-                  placeholder="Paste or type the conversation here..."
-                  className="w-full h-40 bg-[rgba(255,255,255,0.1)] text-white rounded-xl p-4 border border-[rgba(255,255,255,0.2)] focus:border-[#FF6B6B] focus:outline-none resize-none"
+                  placeholder="Paste the conversation here..."
+                  className="w-full h-40 bg-[#1a1a1a] text-white rounded-2xl p-4 border border-[#333] focus:border-[#FF6B6B] focus:outline-none resize-none placeholder-[#555]"
                 />
               </motion.div>
             )}
 
             {/* Error */}
             {error && (
-              <div className="bg-[rgba(255,0,0,0.1)] border border-[rgba(255,0,0,0.3)] rounded-xl p-4 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center"
+              >
                 <p className="text-red-400 text-sm">{error}</p>
-              </div>
+              </motion.div>
             )}
 
             {/* Analyze Button */}
             {(selectedImage || manualText) && (
-              <button
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
                 onClick={handleAnalyze}
-                className="w-full rounded-xl overflow-hidden shadow-[0_4px_8px_rgba(255,107,107,0.3)]"
+                className="w-full bg-white text-black rounded-2xl py-4 font-bold text-lg hover:bg-gray-100 transition-colors"
               >
-                <div className="bg-gradient-to-r from-[#FF6B6B] to-[#ff8888] py-3.5 px-5 text-center">
-                  <span className="text-white text-base font-bold">Analyze Conversation</span>
-                </div>
-              </button>
+                Expose Their Intent →
+              </motion.button>
             )}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

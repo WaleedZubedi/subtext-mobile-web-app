@@ -147,7 +147,17 @@ export default function Subscription() {
       }, 2000);
     } catch (err: any) {
       console.error('❌ Subscription activation error:', err);
-      const errorMessage = err.message || 'Failed to activate subscription';
+      let errorMessage = err.message || 'Failed to activate subscription';
+
+      // Handle token-specific errors
+      if (errorMessage.includes('Invalid or expired token') || errorMessage.includes('token')) {
+        errorMessage = 'Your session has expired. Please log in again.';
+        // Redirect to login after showing error
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      }
+
       setError(errorMessage);
       setDebugInfo(`Error: ${errorMessage}`);
       setLoading(false); // IMPORTANT: Reset loading state on error

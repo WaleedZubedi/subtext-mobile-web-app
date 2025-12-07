@@ -52,6 +52,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('Auth check:', { hasToken: !!token, hasUserData: !!userData, localSubscriptionStatus });
 
         if (token && userData) {
+          // Check if token is expired
+          if (api.isTokenExpired()) {
+            console.log('Token expired on mount, attempting refresh...');
+            const newToken = await api.refreshAuthToken();
+
+            if (!newToken) {
+              // Token refresh failed, clear auth and redirect to login
+              console.log('Token refresh failed, redirecting to login');
+              api.clearAllData();
+              setLoading(false);
+              return;
+            }
+          }
+
           setUser(userData);
           setHasSubscription(localSubscriptionStatus);
 
@@ -70,6 +84,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     checkAuth();
   }, [pathname]);
+
+  // Periodic subscription refresh (every 5 minutes when user is logged in)
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      console.log('Periodic subscription status refresh...');
+      refreshSubscriptionStatus().catch(console.error);
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const login = async (email: string, password: string) => {
     try {

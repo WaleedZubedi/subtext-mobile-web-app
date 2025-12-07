@@ -4,14 +4,22 @@ const API_URL = 'https://subtext-backend-f8ci.vercel.app/api';
 
 // Local storage keys
 const TOKEN_KEY = 'userToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+const TOKEN_EXPIRES_AT_KEY = 'tokenExpiresAt';
 const USER_DATA_KEY = 'userData';
 const SUBSCRIPTION_KEY = 'hasSubscription';
 const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 // ============= Token Management =============
-export const saveToken = (token: string): void => {
+export const saveToken = (token: string, refreshToken?: string, expiresAt?: number): void => {
   if (typeof window !== 'undefined') {
     localStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+    if (expiresAt) {
+      localStorage.setItem(TOKEN_EXPIRES_AT_KEY, String(expiresAt));
+    }
     console.log('Token saved');
   }
 };
@@ -23,9 +31,33 @@ export const getToken = (): string | null => {
   return null;
 };
 
+export const getRefreshToken = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  }
+  return null;
+};
+
+export const getTokenExpiresAt = (): number | null => {
+  if (typeof window !== 'undefined') {
+    const expiresAt = localStorage.getItem(TOKEN_EXPIRES_AT_KEY);
+    return expiresAt ? parseInt(expiresAt, 10) : null;
+  }
+  return null;
+};
+
+export const isTokenExpired = (): boolean => {
+  const expiresAt = getTokenExpiresAt();
+  if (!expiresAt) return true;
+  // Check if token expires in less than 5 minutes (buffer time)
+  return Date.now() / 1000 > expiresAt - 300;
+};
+
 export const removeToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
   }
 };
 
@@ -100,13 +132,57 @@ export const clearAllData = (): void => {
   }
 };
 
+// ============= Token Refresh =============
+export const refreshAuthToken = async (): Promise<string | null> => {
+  try {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      console.warn('No refresh token found');
+      return null;
+    }
+
+    console.log('Refreshing token...');
+    const response = await axios.post(`${API_URL}/auth/refresh`, {
+      refreshToken
+    });
+
+    const { session } = response.data;
+    if (session?.accessToken) {
+      saveToken(session.accessToken, session.refreshToken, session.expiresAt);
+      console.log('Token refreshed successfully');
+      return session.accessToken;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    // Clear invalid tokens
+    removeToken();
+    return null;
+  }
+};
+
 // ============= API Helper =============
-const getAuthHeaders = () => {
-  const token = getToken();
+const getAuthHeaders = async () => {
+  let token = getToken();
+
+  // Check if token is expired or about to expire
+  if (token && isTokenExpired()) {
+    console.log('Token expired or expiring soon, refreshing...');
+    token = await refreshAuthToken();
+
+    if (!token) {
+      console.warn('Failed to refresh token');
+      return {};
+    }
+  }
+
   if (!token) {
     console.warn('No auth token found');
+    return {};
   }
-  return token ? { Authorization: `Bearer ${token}` } : {};
+
+  return { Authorization: `Bearer ${token}` };
 };
 
 // ============= Auth APIs =============
@@ -121,9 +197,9 @@ export const signup = async (email: string, password: string, fullName: string) 
 
     const { session, user } = response.data;
 
-    // Save token and user data
+    // Save token and user data with refresh token and expiration
     if (session?.accessToken) {
-      saveToken(session.accessToken);
+      saveToken(session.accessToken, session.refreshToken, session.expiresAt);
     }
     if (user) {
       saveUserData(user);
@@ -148,9 +224,9 @@ export const login = async (email: string, password: string) => {
 
     const { session, user } = response.data;
 
-    // Save token and user data
+    // Save token and user data with refresh token and expiration
     if (session?.accessToken) {
-      saveToken(session.accessToken);
+      saveToken(session.accessToken, session.refreshToken, session.expiresAt);
     }
     if (user) {
       saveUserData(user);
@@ -167,7 +243,7 @@ export const login = async (email: string, password: string) => {
 
 export const logout = async () => {
   try {
-    const headers = getAuthHeaders();
+    const headers = await getAuthHeaders();
     await axios.post(`${API_URL}/auth/logout`, {}, { headers });
     clearAllData();
     console.log('Logout successful');
@@ -181,22 +257,34 @@ export const logout = async () => {
 // ============= OCR API =============
 export const uploadImageForOCR = async (imageFile: File) => {
   try {
-    console.log('Uploading image for OCR...');
+    console.log('Uploading image for OCR...', {
+      name: imageFile.name,
+      size: imageFile.size,
+      type: imageFile.type
+    });
+
     const formData = new FormData();
     formData.append('image', imageFile);
 
+    const authHeaders = await getAuthHeaders();
     const headers = {
-      ...getAuthHeaders(),
+      ...authHeaders,
       'Content-Type': 'multipart/form-data',
     };
 
     const response = await axios.post(`${API_URL}/ocr`, formData, { headers });
-    console.log('OCR response received');
+    console.log('OCR response received:', response.data);
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<any>;
     console.error('OCR error:', axiosError.response?.data || axiosError.message);
-    throw new Error(axiosError.response?.data?.error || 'OCR processing failed');
+
+    // Extract meaningful error message
+    const errorMessage = axiosError.response?.data?.message ||
+                        axiosError.response?.data?.error ||
+                        'OCR processing failed';
+
+    throw new Error(errorMessage);
   }
 };
 
@@ -229,7 +317,7 @@ export const getSubscriptionPlans = async () => {
 
 export const getSubscriptionStatus = async () => {
   try {
-    const headers = getAuthHeaders();
+    const headers = await getAuthHeaders();
     console.log('Fetching subscription status...');
     const response = await axios.get(`${API_URL}/subscription/status`, { headers });
     console.log('Subscription status:', response.data);
@@ -243,7 +331,7 @@ export const getSubscriptionStatus = async () => {
 
 export const createSubscription = async (subscriptionId: string, tier: string) => {
   try {
-    const headers = getAuthHeaders();
+    const headers = await getAuthHeaders();
     console.log('Creating subscription...', { subscriptionId, tier });
 
     const response = await axios.post(
@@ -281,7 +369,7 @@ export const createSubscription = async (subscriptionId: string, tier: string) =
 
 export const cancelSubscription = async (reason?: string) => {
   try {
-    const headers = getAuthHeaders();
+    const headers = await getAuthHeaders();
     console.log('Cancelling subscription...');
 
     const response = await axios.post(

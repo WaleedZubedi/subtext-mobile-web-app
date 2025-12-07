@@ -187,13 +187,21 @@ export default function AppScreen() {
 
       if (inputMethod === 'upload' && selectedImage) {
         const ocrResult = await api.uploadImageForOCR(selectedImage);
-        textToAnalyze = ocrResult.text;
+
+        // Extract text from the response structure
+        if (ocrResult.ParsedResults && ocrResult.ParsedResults[0]?.ParsedText) {
+          textToAnalyze = ocrResult.ParsedResults[0].ParsedText;
+        } else if (ocrResult.text) {
+          // Fallback for legacy format
+          textToAnalyze = ocrResult.text;
+        }
+
         setExtractedText(textToAnalyze);
       } else if (inputMethod === 'manual') {
         textToAnalyze = manualText;
       }
 
-      if (!textToAnalyze) {
+      if (!textToAnalyze || textToAnalyze.trim().length === 0) {
         setError('No text to analyze');
         setIsProcessing(false);
         return;
@@ -202,7 +210,23 @@ export default function AppScreen() {
       const analysis = await api.analyzeMessages([textToAnalyze]);
       setAnalysisResult(analysis);
     } catch (err: any) {
-      setError(err.message || 'Analysis failed');
+      console.error('Analysis error:', err);
+      let errorMessage = err.message || 'Analysis failed';
+
+      // Handle specific error cases
+      if (errorMessage.includes('Invalid image') || errorMessage.includes('does not contain text messages')) {
+        errorMessage = 'Please upload a screenshot of a text conversation (iMessage, WhatsApp, etc.)';
+      } else if (errorMessage.includes('No messages found')) {
+        errorMessage = 'Could not find any messages in the image. Please try a clearer screenshot.';
+      } else if (errorMessage.includes('Subscription required')) {
+        errorMessage = 'Please subscribe to use this feature';
+        router.push('/subscription');
+        return;
+      } else if (errorMessage.includes('Usage limit reached')) {
+        errorMessage = 'You have reached your monthly analysis limit. Please upgrade your plan.';
+      }
+
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }

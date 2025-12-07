@@ -416,6 +416,32 @@ export default function AppScreen() {
         {/* Analysis Result */}
         {analysisResult && (
           <div className="space-y-4">
+            {/* Analyzed Image Preview */}
+            {imagePreview && (
+              <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden p-4">
+                <div className="mb-3">
+                  <span className="text-[#888] text-sm font-medium">Analyzed Image:</span>
+                </div>
+                <img
+                  src={imagePreview}
+                  alt="Analyzed screenshot"
+                  className="w-full rounded-lg border border-[#333]"
+                />
+              </div>
+            )}
+
+            {/* Extracted Text Preview (if available) */}
+            {extractedText && (
+              <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
+                <div className="px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
+                  <span className="text-white text-sm font-bold">Extracted Messages:</span>
+                </div>
+                <div className="p-4">
+                  <p className="text-[#aaa] text-sm leading-relaxed whitespace-pre-wrap">{extractedText}</p>
+                </div>
+              </div>
+            )}
+
             {/* Hidden Intent Card */}
             <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
               <div className="flex items-center px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
@@ -443,6 +469,20 @@ export default function AppScreen() {
                 <p className="text-white text-[15px] leading-[22px] font-medium">{analysisResult.hiddenIntent}</p>
               </div>
             </div>
+
+            {/* Behavior Type Card */}
+            {analysisResult.behaviorType && (
+              <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">
+                <div className="px-4 py-3.5 bg-[rgba(255,255,255,0.05)] border-b border-[rgba(255,255,255,0.1)]">
+                  <span className="text-white text-sm font-bold">Behavior Type:</span>
+                </div>
+                <div className="p-4">
+                  <div className="inline-block bg-[rgba(255,107,107,0.15)] px-4 py-2 rounded-lg border border-[rgba(255,107,107,0.3)]">
+                    <span className="text-[#FF6B6B] text-sm font-semibold">{analysisResult.behaviorType}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Strategic Reply Card */}
             <div className="bg-[#0f0f0f] rounded-2xl border border-[#333] shadow-[0_6px_12px_rgba(0,0,0,0.4)] overflow-hidden">

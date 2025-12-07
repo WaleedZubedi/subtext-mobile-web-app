@@ -293,8 +293,34 @@ export const analyzeMessages = async (messages: string[]) => {
   try {
     console.log('Analyzing messages...');
     const response = await axios.post(`${API_URL}/analyze`, { messages });
-    console.log('Analysis response received');
-    return response.data;
+    console.log('Analysis response received:', response.data);
+
+    // Parse the OpenAI response
+    const content = response.data?.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('No analysis content received');
+    }
+
+    console.log('Raw analysis content:', content);
+
+    // Parse the formatted response
+    const hiddenIntentMatch = content.match(/\*\*Hidden Intent:\*\*\s*(.+?)(?=\n\n|\*\*|$)/s);
+    const behaviorTypeMatch = content.match(/\*\*Behavior Type:\*\*\s*(.+?)(?=\n\n|\*\*|$)/s);
+    const strategicReplyMatch = content.match(/\*\*Strategic Reply:\*\*\s*(.+?)(?=\n\n|\*\*|$)/s);
+
+    const hiddenIntent = hiddenIntentMatch ? hiddenIntentMatch[1].trim() : 'Unable to determine';
+    const behaviorType = behaviorTypeMatch ? behaviorTypeMatch[1].trim() : 'Unknown';
+    const strategicReply = strategicReplyMatch ? strategicReplyMatch[1].trim() : 'No reply generated';
+
+    console.log('Parsed analysis:', { hiddenIntent, behaviorType, strategicReply });
+
+    return {
+      hiddenIntent,
+      behaviorType,
+      strategicReply,
+      rawContent: content
+    };
   } catch (error) {
     const axiosError = error as AxiosError<any>;
     console.error('Analysis error:', axiosError.response?.data || axiosError.message);

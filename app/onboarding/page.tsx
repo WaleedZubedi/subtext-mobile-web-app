@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as api from '@/lib/api';
 
 const slides = [
   {
-    title: 'Decode Hidden Intentions',
+    title: 'Decode Hidden Intentions new',
     description: 'AI analyzes conversations to reveal manipulation tactics and hidden motives',
     icon: '🔍',
   },
